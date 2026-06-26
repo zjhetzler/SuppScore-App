@@ -443,24 +443,11 @@
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <div class="sheet" id="sheet">
     <div class="sheet-grip"></div>
-    <div id="sheetForm">
-      <p class="kicker" id="sheetKicker"></p>
-      <h3 id="sheetTitle"></h3>
-      <p class="lead" id="sheetLead"></p>
-      <div class="field">
-        <label for="emailInput" style="position:absolute;left:-9999px;">Email address</label>
-        <input id="emailInput" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />
-        <span class="err" id="emailErr">Enter an email so we can reach you.</span>
-      </div>
-      <button class="cta cta-primary submit" id="submitEmail"><span id="submitLabel">Save my spot</span></button>
-      <div class="closeline"><button id="closeSheet" type="button">Not now</button></div>
-    </div>
-    <div class="success" id="sheetSuccess" style="display:none;">
-      <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg></span>
-      <h3>You're on the list.</h3>
-      <p id="successMsg"></p>
-      <div class="closeline"><button id="closeSuccess" type="button">Done</button></div>
-    </div>
+    <p class="kicker" id="sheetKicker"></p>
+    <h3 id="sheetTitle"></h3>
+    <p class="lead" id="sheetLead"></p>
+    <a clas="cta cta-primary go" id="sheetGo" href="#">Continue</a>
+    <div class="closeline"><button id="closeSheet" type="button">Not now</button></div>
   </div>
 </div>
 
@@ -472,11 +459,18 @@
 /* (1) PRICE — change it here once; it updates everywhere on the page. */
 const PRICE = "$19/year";
 
-/* (2) EMAIL BACKEND — paste your Formspree or Tally endpoint between the quotes.
-       Formspree looks like: https://formspree.io/f/abcdwxyz
-       Until you paste a real one, emails won't be stored — but every funnel
-       EVENT below still fires, so your demand test stays valid in preview. */
-const FORM_ENDPOINT = "PASTE_YOUR_FORMSPREE_OR_TALLY_ENDPOINT_HERE";
+/* (2) YOUR TALLY FORM LINK — paste the link to your Tally form between the quotes.
+       Find it in Tally: open your form, click "Share", copy the link
+       (it looks like https://tally.so/r/abc123).
+
+       In that Tally form, make sure you have:
+         - an Email field
+         - two HIDDEN fields named exactly:   variant     type
+           (type /hidden in the Tally editor to add each one; names are case-sensitive)
+
+       This page automatically adds ?variant=a&type=founding to the link when someone
+       clicks, so every email you collect in Tally is tagged A-vs-B and paid-vs-free. */
+var TALLY_URL = "https://tally.so/r/A70rkD";
 
 /* (3) ANALYTICS — wire your three funnel events here. Uncomment the line that
        matches your tracker (Plausible or GA). Event names are passed in for you. */
@@ -530,6 +524,12 @@ const VARIANT = getVariant();
 document.querySelectorAll('#priceLabel, #priceLabel2').forEach(el => el.textContent = PRICE);
 document.querySelector('footer .fmark').parentNode.innerHTML =
   document.querySelector('footer .fmark').parentNode.innerHTML.replace('{YEAR}', new Date().getFullYear());
+
+/* build the Tally link, carrying the variant (a/b) and which button was pressed */
+function tallyLink(type) {
+  var sep = TALLY_URL.indexOf('?') === -1 ? '?' : '&';
+  return TALLY_URL + sep + 'variant=' + encodeURIComponent(VARIANT) + '&type=' + encodeURIComponent(type);
+}
 
 /* ============================================================
    SIGNATURE — the verdict card, cycling certified / uncertified
@@ -640,97 +640,35 @@ restartCycle();
    FUNNEL — page view, email (interest), founding click (WTP)
    ============================================================ */
 
-// EVENT 1 — page view
-track('page_view', { variant: VARIANT });
+/* ---------- the sheet: shows the honest "not live yet" message, then sends to Tally ---------- */
+var overlay = document.getElementById('overlay');
+var sheetGo = document.getElementById('sheetGo');
 
-// in-memory state only (no localStorage / sessionStorage)
-const state = { source: 'founding' };
-
-const overlay   = document.getElementById('overlay');
-const emailIn   = document.getElementById('emailInput');
-const emailErr  = document.getElementById('emailErr');
-
-function openSheet(source) {
-  state.source = source; // "founding" or "notify"
-  // reset sheet to form view
-  document.getElementById('sheetForm').style.display = '';
-  document.getElementById('sheetSuccess').style.display = 'none';
-  emailErr.classList.remove('show');
-  emailIn.value = '';
-
-  if (source === 'founding') {
+function openSheet(type) {
+  if (type === 'founding') {
     document.getElementById('sheetKicker').textContent = 'Founding member';
-    document.getElementById('sheetTitle').textContent  = "We're not live yet — you're on the early-access list.";
-    document.getElementById('sheetLead').textContent   =
-      'No charge today. Drop your email and you\u2019ll get first access at the founding price (' + PRICE + ') the moment we launch.';
-    document.getElementById('submitLabel').textContent = 'Save my founding spot';
+    document.getElementById('sheetTitle').textContent  = "We're not live yet — you're early.";
+    document.getElementById('sheetLead').textContent   = 'No charge today. Add your email on the next step and you\u2019ll get first access at the founding price (' + PRICE + ') when we launch.';
+    sheetGo.textContent = 'Reserve my founding spot';
   } else {
     document.getElementById('sheetKicker').textContent = 'Early access';
-    document.getElementById('sheetTitle').textContent  = "We'll let you know when SuppScore launches.";
-    document.getElementById('sheetLead').textContent   =
-      'Leave your email and we\u2019ll send a single note the day it\u2019s ready. No spam, no charge.';
-    document.getElementById('submitLabel').textContent = 'Notify me';
+    document.getElementById('sheetTitle').textContent  = "We'll tell you when it launches.";
+    document.getElementById('sheetLead').textContent   = 'Add your email on the next step and we\u2019ll send one note the day SuppScore is ready.';
+    sheetGo.textContent = 'Notify me';
   }
-
+  sheetGo.setAttribute('href', tallyLink(type));   // carries variant + founding/notify into Tally
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
-  setTimeout(() => emailIn.focus(), 50);
 }
+function closeSheet() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
 
-function closeSheet() {
-  overlay.classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-// PAID button → EVENT 3 (willingness to pay) fires on the click itself
-function onFoundingClick() {
-  track('founding_member_click', { variant: VARIANT });   // <-- the key WTP signal
-  openSheet('founding');
-}
-document.getElementById('foundingBtn').addEventListener('click', onFoundingClick);
-document.getElementById('foundingBtn2').addEventListener('click', onFoundingClick);
-
-// plain interest — opens the same capture, but no WTP event
-document.getElementById('notifyBtn').addEventListener('click', () => openSheet('notify'));
-document.getElementById('notifyBtn2').addEventListener('click', () => openSheet('notify'));
-
-// close handlers
+document.getElementById('foundingBtn').addEventListener('click', function () { openSheet('founding'); });
+document.getElementById('foundingBtn2').addEventListener('click', function () { openSheet('founding'); });
+document.getElementById('notifyBtn').addEventListener('click', function () { openSheet('notify'); });
+document.getElementById('notifyBtn2').addEventListener('click', function () { openSheet('notify'); });
 document.getElementById('closeSheet').addEventListener('click', closeSheet);
-document.getElementById('closeSuccess').addEventListener('click', closeSheet);
-overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeSheet(); });
-
-// submit email → EVENT 2 (interest), tagged with source + variant
-function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
-
-document.getElementById('submitEmail').addEventListener('click', () => {
-  const email = emailIn.value.trim();
-  if (!isEmail(email)) { emailErr.classList.add('show'); emailIn.focus(); return; }
-  emailErr.classList.remove('show');
-
-  // EVENT 2 — fires on valid submit, independent of backend wiring
-  track('email_submitted', { variant: VARIANT, source: state.source });
-
-  // send to your form backend (silently no-ops on the placeholder URL)
-  sendToBackend(email, state.source);
-
-  // success state
-  document.getElementById('sheetForm').style.display = 'none';
-  document.getElementById('sheetSuccess').style.display = '';
-  document.getElementById('successMsg').textContent = state.source === 'founding'
-    ? "You'll be first in line at the founding price when we launch. We'll be in touch."
-    : "We'll send a single note the day SuppScore is ready.";
-});
-
-function sendToBackend(email, source) {
-  if (FORM_ENDPOINT.indexOf('PASTE_') === 0) return; // not wired yet — skip the network call
-  const fd = new FormData();
-  fd.append('email', email);
-  fd.append('signup_type', source);      // "founding" (WTP) vs "notify" (interest)
-  fd.append('variant', VARIANT);          // "a" or "b"
-  fetch(FORM_ENDPOINT, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
-    .catch(err => console.warn('[SuppScore] backend post failed:', err));
-}
+overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSheet(); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay.classList.contains('open')) closeSheet(); });
 </script>
 </body>
 </html>

@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SuppScore — Decode the label</title>
+<meta name="description" content="Scan a supplement's barcode and see whether it carries a real third-party certification — and what that mark actually covers." />
+
+<!-- Fonts: Bricolage Grotesque (display), Hanken Grotesk (body), Space Mono (label data). System fallbacks keep it readable if fonts are blocked. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --paper:   #FBF6EF;   /* warm background           */
+    --paper-2: #F3EBDE;   /* warm sand (bands)         */
+    --card:    #FFFFFF;
+    --ink:     #20302B;   /* deep pine ink             */
+    --ink-soft:#5E6E66;
+    --line:    #ECE1D1;   /* warm hairline             */
+    --green:   #2F7A57;   /* verification color        */
+    --green-d: #225B41;
+    --green-bg:#E4F0E9;
+    --honey:   #E8A23B;   /* brand warmth / CTA        */
+    --honey-d: #C9831F;
+    --taupe:   #9C8E76;   /* neutral / "unverified"    */
+    --taupe-bg:#EFE7D8;
+    --radius: 18px;
+    --shadow: 0 1px 2px rgba(32,48,43,.06), 0 18px 40px -22px rgba(32,48,43,.30);
+    --maxw: 460px;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+  a { color: var(--green-d); }
+  :focus-visible { outline: 3px solid var(--honey); outline-offset: 3px; border-radius: 6px; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex; align-items: baseline; gap: 9px;
+    padding: 18px 0 6px;
+  }
+  .mark {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800; font-size: 22px; letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .mark .s { color: var(--green); }
+  .mark-sub {
+    font-family: "Space Mono", monospace;
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--taupe);
+  }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 14px 0 28px; }
+  .eyebrow {
+    font-family: "Space Mono", monospace;
+    font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--green-d);
+    display: inline-flex; align-items: center; gap: 7px;
+    margin: 6px 0 14px;
+  }
+  .eyebrow::before { content:""; width: 8px; height: 8px; border-radius: 50%; background: var(--honey); }
+
+  h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700; font-size: clamp(31px, 9vw, 40px);
+    line-height: 1.04; letter-spacing: -.025em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  h1 .hl {
+    background: linear-gradient(transparent 62%, rgba(232,162,59,.42) 0);
+    padding: 0 .04em;
+  }
+  .subhead {
+    font-size: 17.5px; color: var(--ink-soft); margin: 0 0 22px; max-width: 38ch;
+    text-wrap: pretty;
+  }
+
+  /* ---------- verdict card (signature) ---------- */
+  .card {
+    position: relative; overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+  }
+  .card-scan {
+    position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: linear-gradient(180deg, transparent, rgba(47,122,87,.16), transparent);
+    height: 38%; transform: translateY(-120%);
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 11px;
+    padding: 15px 16px; border-bottom: 1px solid var(--line);
+  }
+  .barcode { display:flex; gap:2px; align-items:flex-end; height: 26px; }
+  .barcode i { display:block; width: 2px; background: var(--ink); border-radius: 1px; }
+  .card-head .pname {
+    font-weight: 600; font-size: 15px; flex: 1; line-height: 1.2;
+  }
+  .card-head .pkind {
+    font-family: "Space Mono", monospace; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--taupe);
+  }
+
+  .verdict {
+    display: flex; align-items: center; gap: 11px;
+    padding: 16px;
+  }
+  .badge {
+    flex: none; width: 42px; height: 42px; border-radius: 12px;
+    display: grid; place-items: center;
+  }
+  .badge svg { width: 22px; height: 22px; }
+  .verdict-text .vt-status { font-weight: 700; font-size: 16px; line-height: 1.15; }
+  .verdict-text .vt-note { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+
+  /* state colors */
+  .is-certified .badge { background: var(--green-bg); color: var(--green-d); }
+  .is-certified .vt-status { color: var(--green-d); }
+  .is-uncertified .badge { background: var(--taupe-bg); color: var(--taupe); }
+  .is-uncertified .vt-status { color: #6f6450; }
+
+  .rows { padding: 4px 16px 16px; display: grid; gap: 9px; }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13.5px; color: var(--ink);
+  }
+  .row .label { font-family: "Space Mono", monospace; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; color: var(--taupe); flex: none; width: 96px; }
+  .row .val { color: var(--ink); }
+  .row .val.good { color: var(--green-d); font-weight: 600; }
+  .row .val.muted { color: var(--ink-soft); }
+  .dot { flex:none; width:7px; height:7px; border-radius:50%; }
+  .dot.good { background: var(--green); }
+  .dot.muted { background: var(--taupe); }
+
+  .card-foot {
+    border-top: 1px solid var(--line);
+    padding: 11px 16px; font-size: 12.5px; color: var(--ink-soft);
+    background: var(--paper);
+    display:flex; gap: 8px; align-items: flex-start;
+  }
+  .card-foot svg { flex:none; width: 15px; height:15px; margin-top: 1px; color: var(--taupe); }
+
+  .switcher {
+    display:flex; gap:6px; justify-content:center; padding: 0 0 14px;
+  }
+  .switcher button {
+    width: 7px; height: 7px; padding:0; border:0; border-radius:50%;
+    background: var(--line); cursor: pointer; transition: background .25s, transform .25s;
+  }
+  .switcher button[aria-current="true"] { background: var(--green); transform: scale(1.3); }
+
+  /* ---------- CTAs ---------- */
+  .cta {
+    display: block; width: 100%; text-align: center; cursor: pointer;
+    font-family: "Hanken Grotesk", sans-serif; font-weight: 600;
+    border-radius: 14px; border: 0; padding: 16px 18px; font-size: 17px;
+    line-height: 1.2;
+    transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .cta-primary {
+    background: var(--honey); color: #3a2a07;
+    box-shadow: 0 10px 24px -10px rgba(232,162,59,.85);
+  }
+  .cta-primary:hover { background: var(--honey-d); transform: translateY(-1px); }
+  .cta-primary:active { transform: translateY(0); }
+  .cta-primary .price { font-weight: 800; }
+  .cta-primary .sub { display:block; font-weight: 500; font-size: 12.5px; opacity:.78; margin-top: 3px; letter-spacing:.01em; }
+
+  .cta-secondary {
+    background: none; border: 0; color: var(--ink-soft); cursor: pointer;
+    font-family: "Hanken Grotesk", sans-serif; font-size: 14.5px;
+    display: block; width: 100%; text-align: center; padding: 14px 0 4px;
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line);
+  }
+  .cta-secondary:hover { color: var(--ink); text-decoration-color: var(--taupe); }
+
+  .devnote {
+    font-size: 12.5px; color: var(--taupe); text-align: center;
+    margin: 12px auto 0; max-width: 34ch;
+  }
+
+  /* ---------- sections ---------- */
+  .band { background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  section { padding: 38px 0; }
+  .sec-eyebrow {
+    font-family: "Space Mono", monospace; font-size: 12px; letter-spacing:.08em;
+    text-transform: uppercase; color: var(--green-d); margin: 0 0 6px;
+  }
+  h2 {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 700;
+    font-size: 26px; letter-spacing: -.02em; line-height: 1.1; margin: 0 0 22px;
+  }
+
+  /* steps */
+  ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 16px; }
+  ol.steps li { counter-increment: s; display: flex; gap: 14px; align-items: flex-start; }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px;
+    color: var(--green); background: var(--green-bg);
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    display: grid; place-items: center;
+  }
+  ol.steps .st-title { font-weight: 600; font-size: 16.5px; }
+  ol.steps .st-body { font-size: 14.5px; color: var(--ink-soft); margin-top: 1px; }
+
+  /* explainer cards */
+  .facts { display: grid; gap: 12px; }
+  .fact {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 15px 16px;
+  }
+  .fact h3 {
+    margin: 0 0 4px; font-family: "Hanken Grotesk", sans-serif; font-weight: 600;
+    font-size: 15.5px; display:flex; gap:8px; align-items:center;
+  }
+  .fact h3 .tick { color: var(--green); flex:none; width:16px; height:16px; }
+  .fact p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+
+  /* closing CTA band */
+  .close-band { text-align: center; }
+  .close-band h2 { margin-bottom: 8px; }
+  .close-band p { color: var(--ink-soft); margin: 0 0 22px; font-size: 15.5px; }
+
+  /* footer */
+  footer { padding: 30px 0 40px; }
+  footer p { font-size: 12.5px; color: var(--taupe); margin: 0 0 8px; line-height: 1.55; }
+  footer .fmark { font-family:"Bricolage Grotesque"; font-weight:800; color: var(--ink); font-size: 14px; }
+
+  /* ---------- sheet (fake door / email capture) ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(32,48,43,.45);
+    display: none; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .overlay.open { display: flex; }
+  .sheet {
+    background: var(--paper); width: 100%; max-width: var(--maxw);
+    border-radius: 22px 22px 0 0; padding: 22px 22px calc(22px + env(safe-area-inset-bottom));
+    box-shadow: 0 -20px 50px -20px rgba(32,48,43,.5);
+    transform: translateY(8px); animation: rise .28s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes rise { to { transform: translateY(0); } }
+  @media (min-width: 520px) {
+    .overlay { align-items: center; }
+    .sheet { border-radius: 22px; margin: 0 20px; }
+  }
+  .sheet-grip { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 16px; }
+  .sheet .kicker {
+    font-family: "Space Mono", monospace; font-size: 11.5px; letter-spacing:.06em;
+    text-transform: uppercase; color: var(--honey-d); margin: 0 0 6px;
+  }
+  .sheet h3 {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 700;
+    font-size: 22px; letter-spacing: -.02em; margin: 0 0 8px; line-height: 1.12;
+  }
+  .sheet p.lead { font-size: 14.5px; color: var(--ink-soft); margin: 0 0 18px; }
+  .field { display:flex; flex-direction: column; gap: 8px; }
+  .field input {
+    font-family: "Hanken Grotesk", sans-serif; font-size: 16px;
+    padding: 14px 15px; border-radius: 12px; border: 1.5px solid var(--line);
+    background: var(--card); color: var(--ink); width: 100%;
+  }
+  .field input:focus { border-color: var(--green); outline: none; }
+  .field .err { color: #b4452e; font-size: 13px; min-height: 0; display: none; }
+  .field .err.show { display: block; }
+  .sheet .submit { margin-top: 12px; }
+  .sheet .closeline { text-align:center; margin-top: 12px; }
+  .sheet .closeline button {
+    background:none; border:0; color: var(--taupe); font-size: 13.5px; cursor: pointer;
+    font-family:"Hanken Grotesk"; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .success { text-align: center; padding: 6px 4px 2px; }
+  .success .check {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--green-bg);
+    color: var(--green-d); display: grid; place-items: center; margin: 0 auto 14px;
+  }
+  .success .check svg { width: 28px; height: 28px; }
+  .success h3 { margin-bottom: 6px; }
+  .success p { color: var(--ink-soft); font-size: 14.5px; margin: 0 auto; max-width: 30ch; }
+
+  /* reveal on load */
+  .reveal { opacity: 0; transform: translateY(10px); animation: up .6s ease forwards; }
+  .reveal.d1 { animation-delay: .05s; }
+  .reveal.d2 { animation-delay: .14s; }
+  .reveal.d3 { animation-delay: .23s; }
+  .reveal.d4 { animation-delay: .32s; }
+  @keyframes up { to { opacity: 1; transform: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .sheet, .card-scan { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap topbar">
+  <span class="mark">Supp<span class="s">Score</span></span>
+  <span class="mark-sub">decode the label</span>
+</header>
+
+<main>
+  <!-- ============ HERO ============ -->
+  <div class="wrap hero">
+    <span class="eyebrow reveal d1">Built for the supplement aisle</span>
+    <h1 class="reveal d1" id="headline"><!-- set by JS per A/B variant --></h1>
+    <p class="subhead reveal d2" id="subhead"><!-- set by JS per A/B variant --></p>
+
+    <!-- ===== SIGNATURE: live verdict card ===== -->
+    <div class="card reveal d3" id="verdictCard" aria-live="polite">
+      <div class="card-scan" id="cardScan"></div>
+      <div class="card-head">
+        <span class="barcode" aria-hidden="true">
+          <i style="height:60%"></i><i style="height:100%"></i><i style="height:45%"></i>
+          <i style="height:80%"></i><i style="height:35%"></i><i style="height:95%"></i>
+          <i style="height:55%"></i><i style="height:75%"></i>
+        </span>
+        <span class="pname" id="cPname"></span>
+        <span class="pkind" id="cPkind"></span>
+      </div>
+
+      <div class="verdict" id="cVerdict">
+        <span class="badge" id="cBadge"></span>
+        <span class="verdict-text">
+          <span class="vt-status" id="cStatus"></span>
+          <span class="vt-note" id="cNote"></span>
+        </span>
+      </div>
+
+      <div class="rows" id="cRows"></div>
+
+      <div class="card-foot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <span id="cFoot"></span>
+      </div>
+    </div>
+    <div class="switcher" id="switcher" aria-label="Example results"></div>
+
+    <!-- ===== PRIMARY CTA (the willingness-to-pay door) ===== -->
+    <button class="cta cta-primary reveal d4" id="foundingBtn">
+      <span class="line">Become a founding member — <span class="price" id="priceLabel"></span></span>
+      <span class="sub">Lock the founding price · early access at launch</span>
+    </button>
+
+    <!-- ===== SECONDARY CTA (plain interest) ===== -->
+    <button class="cta-secondary reveal d4" id="notifyBtn">Or just notify me when it launches</button>
+
+    <p class="devnote reveal d4">In development. This page gauges interest — there's no product or charge yet.</p>
+  </div>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <div class="band">
+    <section class="wrap">
+      <p class="sec-eyebrow">How it works</p>
+      <h2>Three seconds, standing in the aisle.</h2>
+      <ol class="steps">
+        <li>
+          <div>
+            <div class="st-title">Scan the barcode</div>
+            <div class="st-body">Point your camera at any supplement on the shelf.</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="st-title">Decode the certification</div>
+            <div class="st-body">We check it against real certification records — NSF, USP Verified, Informed Sport — not marketing copy.</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="st-title">Decide with clear eyes</div>
+            <div class="st-body">See what's independently verified, what isn't, and choose for yourself.</div>
+          </div>
+        </li>
+      </ol>
+    </section>
+  </div>
+
+  <!-- ============ WHAT A REAL MARK MEANS ============ -->
+  <section class="wrap">
+    <p class="sec-eyebrow">Why it matters</p>
+    <h2>A certification is a referee. “Lab tested” is just a claim.</h2>
+    <div class="facts">
+      <div class="fact">
+        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Real marks are pass/fail</h3>
+        <p>NSF, USP Verified and Informed Sport are enforceable standards a product has to meet. Phrases like “lab tested” or “NSF-grade” have no referee behind them.</p>
+      </div>
+      <div class="fact">
+        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Know what's actually checked</h3>
+        <p>A mark can cover contaminant limits, label and dose accuracy, and manufacturing quality — but not every mark covers all three. We show you which.</p>
+      </div>
+      <div class="fact">
+        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Know how often it's tested</h3>
+        <p>Some marks verify every production lot; others test periodically. That difference is easy to miss on a label — we make it plain.</p>
+      </div>
+      <div class="fact">
+        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Honest about the unknowns</h3>
+        <p>Most products carry no certification at all. We say so plainly. Uncertified means <em>unverified</em> — not unsafe. You deserve the difference stated clearly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLOSING CTA ============ -->
+  <div class="band">
+    <section class="wrap close-band">
+      <h2>Be a founding member.</h2>
+      <p>Help shape what SuppScore checks first — and lock the founding price before launch.</p>
+      <button class="cta cta-primary" id="foundingBtn2">
+        <span class="line">Become a founding member — <span class="price" id="priceLabel2"></span></span>
+        <span class="sub">Lock the founding price · early access at launch</span>
+      </button>
+      <button class="cta-secondary" id="notifyBtn2">Or just notify me when it launches</button>
+    </section>
+  </div>
+
+  <footer class="wrap">
+    <p><span class="fmark">SuppScore</span> — in development, {YEAR}.</p>
+    <p>Not medical advice. A certification mark means a product met a certifier's limits at the time of testing — not that it is risk-free. We surface independent certification status; we don't run our own lab.</p>
+  </footer>
+</main>
+
+<!-- ============ EMAIL / FAKE-DOOR SHEET ============ -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet" id="sheet">
+    <div class="sheet-grip"></div>
+    <div id="sheetForm">
+      <p class="kicker" id="sheetKicker"></p>
+      <h3 id="sheetTitle"></h3>
+      <p class="lead" id="sheetLead"></p>
+      <div class="field">
+        <label for="emailInput" style="position:absolute;left:-9999px;">Email address</label>
+        <input id="emailInput" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />
+        <span class="err" id="emailErr">Enter an email so we can reach you.</span>
+      </div>
+      <button class="cta cta-primary submit" id="submitEmail"><span id="submitLabel">Save my spot</span></button>
+      <div class="closeline"><button id="closeSheet" type="button">Not now</button></div>
+    </div>
+    <div class="success" id="sheetSuccess" style="display:none;">
+      <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <h3>You're on the list.</h3>
+      <p id="successMsg"></p>
+      <div class="closeline"><button id="closeSuccess" type="button">Done</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SUPPSCORE — config you'll actually edit
+   ============================================================ */
+
+/* (1) PRICE — change it here once; it updates everywhere on the page. */
+const PRICE = "$19/year";
+
+/* (2) EMAIL BACKEND — paste your Formspree or Tally endpoint between the quotes.
+       Formspree looks like: https://formspree.io/f/abcdwxyz
+       Until you paste a real one, emails won't be stored — but every funnel
+       EVENT below still fires, so your demand test stays valid in preview. */
+const FORM_ENDPOINT = "PASTE_YOUR_FORMSPREE_OR_TALLY_ENDPOINT_HERE";
+
+/* (3) ANALYTICS — wire your three funnel events here. Uncomment the line that
+       matches your tracker (Plausible or GA). Event names are passed in for you. */
+function track(eventName, props) {
+  // -- Plausible: --
+  // if (window.plausible) window.plausible(eventName, { props: props });
+
+  // -- Google Analytics (gtag.js): --
+  // if (window.gtag) window.gtag('event', eventName, props);
+
+  // Visible in the browser console so you can confirm wiring before deploying:
+  console.log("[SuppScore event]", eventName, props);
+}
+
+/* The three funnel events this page reports:
+     "page_view"             — someone scanned the QR and landed
+     "email_submitted"       — interest  (props.source = "founding" or "notify")
+     "founding_member_click" — willingness to pay  (the key signal; the paid-button click)
+   Every event is tagged with props.variant ("a" or "b") for the A/B test. */
+
+/* ============================================================
+   A/B VALUE-PROP VARIANTS  (?v=a safety  ·  ?v=b value  ·  default a)
+   ============================================================ */
+const VARIANTS = {
+  a: { // safety angle — contaminants / heavy metals
+    headline: ['Is it actually tested for ', 'heavy metals', '?'],
+    subhead:  "Scan the barcode and SuppScore tells you whether a supplement carries a genuine third-party certification for contaminants and purity — and exactly what that mark covers."
+  },
+  b: { // value angle — getting the dose you paid for
+    headline: ['Are you getting the ', 'dose you paid for', '?'],
+    subhead:  "Scan the barcode and SuppScore tells you whether a real third-party mark has verified the label — so the milligrams on the bottle match what's inside."
+  }
+};
+
+function getVariant() {
+  const p = new URLSearchParams(location.search).get('v');
+  return (p && p.toLowerCase() === 'b') ? 'b' : 'a'; // default A
+}
+const VARIANT = getVariant();
+
+/* ---- apply variant copy ---- */
+(function applyVariant() {
+  const v = VARIANTS[VARIANT];
+  const [pre, hl, post] = v.headline;
+  document.getElementById('headline').innerHTML =
+    pre + '<span class="hl">' + hl + '</span>' + post;
+  document.getElementById('subhead').textContent = v.subhead;
+})();
+
+/* ---- price label everywhere ---- */
+document.querySelectorAll('#priceLabel, #priceLabel2').forEach(el => el.textContent = PRICE);
+document.querySelector('footer .fmark').parentNode.innerHTML =
+  document.querySelector('footer .fmark').parentNode.innerHTML.replace('{YEAR}', new Date().getFullYear());
+
+/* ============================================================
+   SIGNATURE — the verdict card, cycling certified / uncertified
+   ============================================================ */
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>';
+const DASH_SVG  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 12h12"/></svg>';
+
+const EXAMPLES = [
+  {
+    state: 'is-certified',
+    pname: 'Whey Protein Isolate',
+    pkind: 'Protein',
+    badge: CHECK_SVG,
+    status: 'NSF Certified for Sport',
+    note: 'A real, enforceable third-party mark.',
+    rows: [
+      { label: 'Contaminants', val: 'Within certified limits', cls: 'good', dot: 'good' },
+      { label: 'Label & dose', val: 'Independently verified', cls: 'good', dot: 'good' },
+      { label: 'Tested',       val: 'Every production lot',    cls: 'good', dot: 'good' }
+    ],
+    foot: 'A mark certifies the product met the certifier\u2019s limits — not that it\u2019s risk-free.'
+  },
+  {
+    state: 'is-uncertified',
+    pname: 'Greens Powder Blend',
+    pkind: 'Greens',
+    badge: DASH_SVG,
+    status: 'No third-party certification',
+    note: 'The label says “lab tested.” There\u2019s no referee behind that.',
+    rows: [
+      { label: 'Contaminants', val: 'Not independently checked', cls: 'muted', dot: 'muted' },
+      { label: 'Label & dose', val: 'Manufacturer\u2019s claim only', cls: 'muted', dot: 'muted' },
+      { label: 'Tested',       val: 'No enforceable standard',   cls: 'muted', dot: 'muted' }
+    ],
+    foot: 'Uncertified means unverified — not unsafe. We just make the difference clear.'
+  }
+];
+
+let exampleIdx = 0;
+let cycleTimer = null;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function renderExample(i) {
+  const ex = EXAMPLES[i];
+  const v = document.getElementById('cVerdict');
+  document.getElementById('verdictCard').className = 'card ' + ex.state;
+  document.getElementById('cPname').textContent = ex.pname;
+  document.getElementById('cPkind').textContent = ex.pkind;
+  document.getElementById('cBadge').innerHTML = ex.badge;
+  document.getElementById('cStatus').textContent = ex.status;
+  document.getElementById('cNote').textContent = ex.note;
+  document.getElementById('cFoot').textContent = ex.foot;
+  document.getElementById('cRows').innerHTML = ex.rows.map(r =>
+    '<span class="row"><span class="label">' + r.label + '</span>' +
+    '<span class="dot ' + r.dot + '"></span>' +
+    '<span class="val ' + r.cls + '">' + r.val + '</span></span>'
+  ).join('');
+
+  // dots
+  document.querySelectorAll('#switcher button').forEach((b, bi) =>
+    b.setAttribute('aria-current', bi === i ? 'true' : 'false'));
+}
+
+function buildSwitcher() {
+  const sw = document.getElementById('switcher');
+  EXAMPLES.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Show example ' + (i + 1));
+    b.addEventListener('click', () => { goTo(i); restartCycle(); });
+    sw.appendChild(b);
+  });
+}
+
+function sweepThen(render) {
+  const scan = document.getElementById('cardScan');
+  if (reduceMotion) { render(); return; }
+  scan.style.transition = 'none';
+  scan.style.transform = 'translateY(-120%)';
+  // force reflow then animate the scan line down, swap content mid-sweep
+  requestAnimationFrame(() => {
+    scan.style.transition = 'transform .85s ease-in-out';
+    scan.style.transform = 'translateY(330%)';
+    setTimeout(render, 280);
+    setTimeout(() => { scan.style.transform = 'translateY(-120%)'; }, 900);
+  });
+}
+
+function goTo(i) {
+  exampleIdx = i;
+  sweepThen(() => renderExample(exampleIdx));
+}
+
+function nextExample() {
+  goTo((exampleIdx + 1) % EXAMPLES.length);
+}
+
+function restartCycle() {
+  if (cycleTimer) clearInterval(cycleTimer);
+  if (!reduceMotion) cycleTimer = setInterval(nextExample, 4200);
+}
+
+buildSwitcher();
+renderExample(0);
+restartCycle();
+
+/* ============================================================
+   FUNNEL — page view, email (interest), founding click (WTP)
+   ============================================================ */
+
+// EVENT 1 — page view
+track('page_view', { variant: VARIANT });
+
+// in-memory state only (no localStorage / sessionStorage)
+const state = { source: 'founding' };
+
+const overlay   = document.getElementById('overlay');
+const emailIn   = document.getElementById('emailInput');
+const emailErr  = document.getElementById('emailErr');
+
+function openSheet(source) {
+  state.source = source; // "founding" or "notify"
+  // reset sheet to form view
+  document.getElementById('sheetForm').style.display = '';
+  document.getElementById('sheetSuccess').style.display = 'none';
+  emailErr.classList.remove('show');
+  emailIn.value = '';
+
+  if (source === 'founding') {
+    document.getElementById('sheetKicker').textContent = 'Founding member';
+    document.getElementById('sheetTitle').textContent  = "We're not live yet — you're on the early-access list.";
+    document.getElementById('sheetLead').textContent   =
+      'No charge today. Drop your email and you\u2019ll get first access at the founding price (' + PRICE + ') the moment we launch.';
+    document.getElementById('submitLabel').textContent = 'Save my founding spot';
+  } else {
+    document.getElementById('sheetKicker').textContent = 'Early access';
+    document.getElementById('sheetTitle').textContent  = "We'll let you know when SuppScore launches.";
+    document.getElementById('sheetLead').textContent   =
+      'Leave your email and we\u2019ll send a single note the day it\u2019s ready. No spam, no charge.';
+    document.getElementById('submitLabel').textContent = 'Notify me';
+  }
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => emailIn.focus(), 50);
+}
+
+function closeSheet() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// PAID button → EVENT 3 (willingness to pay) fires on the click itself
+function onFoundingClick() {
+  track('founding_member_click', { variant: VARIANT });   // <-- the key WTP signal
+  openSheet('founding');
+}
+document.getElementById('foundingBtn').addEventListener('click', onFoundingClick);
+document.getElementById('foundingBtn2').addEventListener('click', onFoundingClick);
+
+// plain interest — opens the same capture, but no WTP event
+document.getElementById('notifyBtn').addEventListener('click', () => openSheet('notify'));
+document.getElementById('notifyBtn2').addEventListener('click', () => openSheet('notify'));
+
+// close handlers
+document.getElementById('closeSheet').addEventListener('click', closeSheet);
+document.getElementById('closeSuccess').addEventListener('click', closeSheet);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeSheet(); });
+
+// submit email → EVENT 2 (interest), tagged with source + variant
+function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+document.getElementById('submitEmail').addEventListener('click', () => {
+  const email = emailIn.value.trim();
+  if (!isEmail(email)) { emailErr.classList.add('show'); emailIn.focus(); return; }
+  emailErr.classList.remove('show');
+
+  // EVENT 2 — fires on valid submit, independent of backend wiring
+  track('email_submitted', { variant: VARIANT, source: state.source });
+
+  // send to your form backend (silently no-ops on the placeholder URL)
+  sendToBackend(email, state.source);
+
+  // success state
+  document.getElementById('sheetForm').style.display = 'none';
+  document.getElementById('sheetSuccess').style.display = '';
+  document.getElementById('successMsg').textContent = state.source === 'founding'
+    ? "You'll be first in line at the founding price when we launch. We'll be in touch."
+    : "We'll send a single note the day SuppScore is ready.";
+});
+
+function sendToBackend(email, source) {
+  if (FORM_ENDPOINT.indexOf('PASTE_') === 0) return; // not wired yet — skip the network call
+  const fd = new FormData();
+  fd.append('email', email);
+  fd.append('signup_type', source);      // "founding" (WTP) vs "notify" (interest)
+  fd.append('variant', VARIANT);          // "a" or "b"
+  fetch(FORM_ENDPOINT, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
+    .catch(err => console.warn('[SuppScore] backend post failed:', err));
+}
+</script>
+</body>
+</html>

@@ -285,6 +285,7 @@
   .field .err { color: #b4452e; font-size: 13px; min-height: 0; display: none; }
   .field .err.show { display: block; }
   .sheet .submit { margin-top: 12px; }
+  #tallyEmbed iframe { border: 0; min-height: 200px; }
   .sheet .closeline { text-align:center; margin-top: 12px; }
   .sheet .closeline button {
     background:none; border:0; color: var(--taupe); font-size: 13.5px; cursor: pointer;
@@ -322,7 +323,7 @@
 <main>
   <!-- ============ HERO ============ -->
   <div class="wrap hero">
-    <span class="eyebrow reveal d1">Built for the supplement aisle</span>
+    <span class="d1">Choose supplements with confidence<br><br></span>
     <h1 class="reveal d1" id="headline"><!-- set by JS per A/B variant --></h1>
     <p class="subhead reveal d2" id="subhead"><!-- set by JS per A/B variant --></p>
 
@@ -371,8 +372,7 @@
   <!-- ============ HOW IT WORKS ============ -->
   <div class="band">
     <section class="wrap">
-      <p class="sec-eyebrow">How it works</p>
-      <h2>Three seconds, standing in the aisle.</h2>
+      <h2><br>Easy insights to healthier choices</h2>
       <ol class="steps">
         <li>
           <div>
@@ -389,7 +389,7 @@
         <li>
           <div>
             <div class="st-title">Make an informed choice</div>
-            <div class="st-body">See what's independently verified, what isn't, and choose for yourself.</div>
+            <div class="st-body">See what's independently verified, what isn't, and choose for yourself.<br><br></div>
           </div>
         </li>
       </ol>
@@ -398,24 +398,23 @@
 
   <!-- ============ WHAT A REAL MARK MEANS ============ -->
   <section class="wrap">
-    <p class="sec-eyebrow">Why it matters</p>
-    <h2>A certification is a referee. “Lab tested” is just a claim.</h2>
+    <h2><br>A validated certification is not equal to "lab tested".</h2>
     <div class="facts">
       <div class="fact">
-        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Real marks are pass/fail</h3>
-        <p>NSF, USP Verified and Informed Sport are enforceable standards a product has to meet. Phrases like “lab tested” or “NSF-grade” have no referee behind them.</p>
+        <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Buy third-party tested with confidence</h3>
+        <p>NSF & USP Verified are enforceable standards a product has to meet. Phrases like “lab tested” or “NSF-grade” are just marketing.</p>
       </div>
       <div class="fact">
         <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Know what's actually checked</h3>
-        <p>A mark can cover contaminant limits, label and dose accuracy, and manufacturing quality — but not every mark covers all three. We show you which.</p>
+        <p>A mark can cover contaminant limits, label and dose accuracy, and manufacturing quality, but not every mark covers all three. We show you which.</p>
       </div>
       <div class="fact">
         <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Know how often it's tested</h3>
-        <p>Some marks verify every production lot; others test periodically. That difference is easy to miss on a label — we make it plain.</p>
+        <p>Some marks verify every production lot; others test periodically. That difference is easy to miss on a label.</p>
       </div>
       <div class="fact">
         <h3><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Honest about the unknowns</h3>
-        <p>Most products carry no certification at all. We say so plainly. Uncertified means <em>unverified</em> — not unsafe. You deserve the difference stated clearly.</p>
+        <p>Most products carry no certification at all, but will make many testing claims. Uncertified means <em>unverified</em>, not unsafe. You deserve the difference stated clearly.</p>
       </div>
     </div>
   </section>
@@ -423,7 +422,7 @@
   <!-- ============ CLOSING CTA ============ -->
   <div class="band">
     <section class="wrap close-band">
-      <h2>Be a founding member.</h2>
+      <h2><br>Be a founding member.</h2>
       <p>Help shape what SuppScore checks first — and lock the founding price before launch.</p>
       <button class="cta cta-primary" id="foundingBtn2">
         <span class="line">Become a founding member — <span class="price" id="priceLabel2"></span></span>
@@ -446,7 +445,7 @@
     <p class="kicker" id="sheetKicker"></p>
     <h3 id="sheetTitle"></h3>
     <p class="lead" id="sheetLead"></p>
-    <a clas="cta cta-primary go" id="sheetGo" href="#">Continue</a>
+    <div id="tallyEmbed"></div>
     <div class="closeline"><button id="closeSheet" type="button">Not now</button></div>
   </div>
 </div>
@@ -497,7 +496,7 @@ function track(eventName, props) {
 const VARIANTS = {
   a: { // safety angle — contaminants / heavy metals
     headline: ['Is it actually tested for ', 'heavy metals', '?'],
-    subhead:  "Scan the barcode and SuppScore tells you whether a supplement carries a genuine third-party certification for contaminants and purity — and exactly what that mark covers."
+    subhead:  "Supplements fall outside of regulatory oversight. Some products are tested by third-party laboratories for safety and efficacy.  Some aren't. The difference is very hard to tell.<br><br>Scan the barcode and SuppScore tells you whether a supplement carries a genuine third-party certification for contaminants and purity and exactly what that mark covers."
   },
   b: { // value angle — getting the dose you paid for
     headline: ['Are you getting the ', 'dose you paid for', '?'],
@@ -517,7 +516,7 @@ const VARIANT = getVariant();
   const [pre, hl, post] = v.headline;
   document.getElementById('headline').innerHTML =
     pre + '<span class="hl">' + hl + '</span>' + post;
-  document.getElementById('subhead').textContent = v.subhead;
+  document.getElementById('subhead').innerHTML = v.subhead;
 })();
 
 /* ---- price label everywhere ---- */
@@ -642,25 +641,30 @@ restartCycle();
 
 /* ---------- the sheet: shows the honest "not live yet" message, then sends to Tally ---------- */
 var overlay = document.getElementById('overlay');
-var sheetGo = document.getElementById('sheetGo');
 
 function openSheet(type) {
   if (type === 'founding') {
     document.getElementById('sheetKicker').textContent = 'Founding member';
     document.getElementById('sheetTitle').textContent  = "We're not live yet — you're early.";
-    document.getElementById('sheetLead').textContent   = 'No charge today. Add your email on the next step and you\u2019ll get first access at the founding price (' + PRICE + ') when we launch.';
-    sheetGo.textContent = 'Reserve my founding spot';
+    document.getElementById('sheetLead').textContent   = 'No charge today. Add your email below and you\u2019ll get first access at the founding price (' + PRICE + ') when we launch.';
   } else {
     document.getElementById('sheetKicker').textContent = 'Early access';
     document.getElementById('sheetTitle').textContent  = "We'll tell you when it launches.";
-    document.getElementById('sheetLead').textContent   = 'Add your email on the next step and we\u2019ll send one note the day SuppScore is ready.';
-    sheetGo.textContent = 'Notify me';
+    document.getElementById('sheetLead').textContent   = 'Add your email below and we\u2019ll send one note the day SuppScore is ready.';
   }
-  sheetGo.setAttribute('href', tallyLink(type));   // carries variant + founding/notify into Tally
+  var embed = document.getElementById('tallyEmbed');
+  embed.innerHTML = '<iframe src="' + tallyLink(type)
+    + '&transparentBackground=1&dynamicHeight=1&hideTitle=1'
+    + '" width="100%" height="200" frameborder="0" title="Sign up form"></iframe>';
+  if (window.Tally) Tally.loadEmbeds();
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
-function closeSheet() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+function closeSheet() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  document.getElementById('tallyEmbed').innerHTML = '';
+}
 
 document.getElementById('foundingBtn').addEventListener('click', function () { openSheet('founding'); });
 document.getElementById('foundingBtn2').addEventListener('click', function () { openSheet('founding'); });
@@ -670,5 +674,6 @@ document.getElementById('closeSheet').addEventListener('click', closeSheet);
 overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSheet(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay.classList.contains('open')) closeSheet(); });
 </script>
+<script src="https://tally.so/widgets/embed.js"></script>
 </body>
 </html>
